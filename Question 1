@@ -1,0 +1,80 @@
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import json
+import time
+import requests
+# 定义一个准备作为线程任务的函数
+def action(task,urls):
+    print(f"传进来的任务是{task}")
+    urlpachong=[]
+    for url in urls:
+        resp = requests.get(url=url)
+        #这里具体的写入Email
+        with open(file='test.txt',mode='a+',encoding='utf-8')as file:
+                for i in json.loads(resp.text):
+                    file.writelines(i['email']+'\n')
+                    # print(i)
+
+
+
+# totalUrllist=['https://jsonplaceholder.typicode.com/posts/1/comments']
+urllist = []
+#先生成100个url
+for i in range(1,101):
+    url=f'https://jsonplaceholder.typicode.com/posts/{i}/comments'
+    urllist.append(url)
+
+
+
+# 按照配置线程数平分每个线程的要爬的url
+def divideUrL(urllist, thredNums:int):
+    """
+
+    :param urllist: 抓取的url列表数量
+    :param thredNums: 线程数
+    :return:
+    """
+    avg_nums= len(urllist) // thredNums #倍数，每一个线程有多少个
+    yu= len(urllist) % thredNums
+    # templist=[]
+    if thredNums > len(urllist):
+        # print("线程数不合理,重新配置线程数")
+        raise "线程数 > 抓取的url的总数,配置不合理,请重新配置线程数"
+
+    for i in range(1,thredNums+1):
+            if thredNums <= 1:
+
+                yield urllist
+                break
+            if i ==thredNums:
+
+                yield urllist[0:]
+            else:
+
+                yield urllist[0:avg_nums + yu // (thredNums - 1)]
+
+            urllist= urllist[avg_nums + yu // (thredNums - 1):]
+
+#根据配置的线程数分配执行爬虫
+def caseForThreading(urls, thredNums):
+    '''
+    根据线程数为每一个线程分配相等的执行用例数
+    :param cases:
+    :param thredNums:
+    :return:
+    '''
+    case_genobj=divideUrL(urllist=urls, thredNums=thredNums)
+    caselist=[]
+    for i in case_genobj:
+        caselist.append(i)
+    return caselist
+
+finnalUrl=caseForThreading(urllist,10)#平分后的每个线程执行的url
+
+# print(finnalUrl)
+# 开10个线程
+for thread in range(len(finnalUrl)):
+    t = threading.Thread(target=action, args=(f'task{thread+1}',finnalUrl[thread],))
+    t.start()  # 开启线程
+
+
